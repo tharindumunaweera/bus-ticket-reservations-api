@@ -2,11 +2,18 @@ package com.tharinduDev.bus.reservation.entity;
 
 import com.tharinduDev.bus.reservation.enums.Location;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-
+@Entity
+@Table(name = "reservations")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Reservation {
 
     @Id
