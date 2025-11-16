@@ -1,6 +1,8 @@
 package com.tharinduDev.bus.reservation.dto;
 
 import com.tharinduDev.bus.reservation.enums.Location;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,5 +13,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class ReservationInquiry extends TicketInquiry {
 
+    @NotNull(message = "Price is required")
+    @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than 0")
     private BigDecimal priceConfirmation;
 }

@@ -5,6 +5,7 @@ import com.tharinduDev.bus.reservation.dto.ReservationDetails;
 import com.tharinduDev.bus.reservation.dto.ReservationInquiry;
 import com.tharinduDev.bus.reservation.dto.TicketInquiry;
 import com.tharinduDev.bus.reservation.service.ReservationService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,13 +24,13 @@ public class ReservationController {
     }
 
     @PostMapping("/check-availability")
-    public ResponseEntity<AvailabilityReport> checkAvailability(@RequestBody TicketInquiry request) {
+    public ResponseEntity<AvailabilityReport> checkAvailability(@Valid  @RequestBody TicketInquiry request) {
         AvailabilityReport response = reservationService.checkAvailability(request);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/reserve")
-    public ResponseEntity<ReservationDetails> reserveTickets(@RequestBody ReservationInquiry request) {
+    public ResponseEntity<ReservationDetails> reserveTickets(@Valid @RequestBody ReservationInquiry request) {
         ReservationDetails response = reservationService.reserveTickets(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
