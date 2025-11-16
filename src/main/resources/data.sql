@@ -1,15 +1,15 @@
 --Insert 40 seats
-INSERT INTO seats (seat_number) VALUES
-('1A'), ('1B'), ('1C'), ('1D'),
-('2A'), ('2B'), ('2C'), ('2D'),
-('3A'), ('3B'), ('3C'), ('3D'),
-('4A'), ('4B'), ('4C'), ('4D'),
-('5A'), ('5B'), ('5C'), ('5D'),
-('6A'), ('6B'), ('6C'), ('6D'),
-('7A'), ('7B'), ('7C'), ('7D'),
-('8A'), ('8B'), ('8C'), ('8D'),
-('9A'), ('9B'), ('9C'), ('9D'),
-('10A'), ('10B'), ('10C'), ('10D');
+INSERT INTO seats (seat_number, is_bookedad, is_bookedda) VALUES
+('1A', FALSE, FALSE), ('1B', FALSE, FALSE), ('1C', FALSE, FALSE), ('1D', FALSE, FALSE),
+('2A', FALSE, FALSE), ('2B', FALSE, FALSE), ('2C', FALSE, FALSE), ('2D', FALSE, FALSE),
+('3A', FALSE, FALSE), ('3B', FALSE, FALSE), ('3C', FALSE, FALSE), ('3D', FALSE, FALSE),
+('4A', FALSE, FALSE), ('4B', FALSE, FALSE), ('4C', FALSE, FALSE), ('4D', FALSE, FALSE),
+('5A', FALSE, FALSE), ('5B', FALSE, FALSE), ('5C', FALSE, FALSE), ('5D', FALSE, FALSE),
+('6A', FALSE, FALSE), ('6B', FALSE, FALSE), ('6C', FALSE, FALSE), ('6D', FALSE, FALSE),
+('7A', FALSE, FALSE), ('7B', FALSE, FALSE), ('7C', FALSE, FALSE), ('7D', FALSE, FALSE),
+('8A', FALSE, FALSE), ('8B', FALSE, FALSE), ('8C', FALSE, FALSE), ('8D', FALSE, FALSE),
+('9A', FALSE, FALSE), ('9B', FALSE, FALSE), ('9C', FALSE, FALSE), ('9D', FALSE, FALSE),
+('10A', FALSE, FALSE), ('10B', FALSE, FALSE), ('10C', FALSE, FALSE), ('10D', FALSE, FALSE);
 
 
 -- Insert routes with prices

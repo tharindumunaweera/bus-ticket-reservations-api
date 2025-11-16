@@ -6,9 +6,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.ArrayList;
-import java.util.List;
-
 @Entity
 @Table(name = "seats")
 @Data
@@ -23,14 +20,20 @@ public class Seat {
     @Column(nullable = false, unique = true)
     private String seatNumber;
 
-    @ManyToMany(mappedBy = "seats")
-    @JsonIgnore
-    private List<Reservation> reservations = new ArrayList<>();
+    // tracks if the seat is occupied for forward journey
+    @Column(nullable = false)
+    private boolean isBookedAD = false;
 
-    // Creating seats without reservations
-    public Seat(Long id, String seatNumber) {
-        this.id = id;
+    // tracks if the seat is occupied for return journey
+    @Column(nullable = false)
+    private boolean isBookedDA = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reservation_id")
+    @JsonIgnore
+    private Reservation reservation;
+
+    public Seat(String seatNumber) {
         this.seatNumber = seatNumber;
-        this.reservations = new ArrayList<>();
     }
 }

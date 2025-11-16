@@ -23,13 +23,11 @@ public class Reservation {
     @Column(nullable = false, unique = true)
     private String reservationNumber;
 
-    @ManyToMany
-    @JoinTable(
-            name = "reservation_seats",
-            joinColumns = @JoinColumn(name = "reservation_id"),
-            inverseJoinColumns = @JoinColumn(name = "seat_id")
-    )
+    @OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL)
     private List<Seat> seats = new ArrayList<>();
+
+    @Column(nullable = false)
+    private Integer passengerCount;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
