@@ -36,4 +36,13 @@ public class Seat {
     public Seat(String seatNumber) {
         this.seatNumber = seatNumber;
     }
+
+    // creating seats without reservations -for testing
+    public Seat(Long id, String seatNumber) {
+        this.id = id;
+        this.seatNumber = seatNumber;
+        this.isBookedAD = false;
+        this.isBookedDA = false;
+        this.reservation = null;
+    }
 }
