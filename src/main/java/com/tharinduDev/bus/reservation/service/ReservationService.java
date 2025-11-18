@@ -12,6 +12,7 @@ import com.tharinduDev.bus.reservation.exception.RouteNotFoundException;
 import com.tharinduDev.bus.reservation.repository.ReservationRepository;
 import com.tharinduDev.bus.reservation.repository.RouteRepository;
 import com.tharinduDev.bus.reservation.repository.SeatRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class ReservationService {
 
     private final RouteRepository routeRepository;
@@ -36,6 +38,9 @@ public class ReservationService {
 
     public AvailabilityReport checkAvailability(TicketInquiry request) {
 
+        log.info("Checking availability for route {} -> {} with {} passengers",
+                request.getOrigin(), request.getDestination(), request.getPassengerCount());
+
         AvailabilityDetails details = getAvailabilityDetails(request);
 
         // calculate pricing
@@ -47,11 +52,17 @@ public class ReservationService {
                 .map(seat -> seat.getSeatNumber())
                 .collect(Collectors.toList());
 
+        log.info("Availability check complete: {} seats available for {} -> {}, total price: Rs. {}",
+                details.availableSeats().size(), request.getOrigin(), request.getDestination(), totalPrice);
+
         return new AvailabilityReport(details.availableSeats().size(), pricePerSeat, totalPrice, availableSeatNumbers);
     }
 
     @Transactional
     public ReservationDetails reserveTickets(ReservationInquiry request) {
+
+        log.info("Start reservation for {} passengers from {} to {}",
+                request.getPassengerCount(), request.getOrigin(), request.getDestination());
 
         AvailabilityDetails details = getAvailabilityDetails(request);
 
@@ -68,6 +79,8 @@ public class ReservationService {
 
         // Create one reservation with multiple seats
         String reservationNumber = generateReservationNumber();
+        log.debug("Reservation number: {}", reservationNumber);
+
         Reservation reservation = new Reservation();
         reservation.setReservationNumber(reservationNumber);
         reservation.setFromLocation(request.getOrigin());
@@ -95,6 +108,9 @@ public class ReservationService {
         // Get seat numbers for response
         List<String> seatNumbers = assignedSeats.stream().map(seat -> seat.getSeatNumber()).collect(Collectors.toList());
 
+        log.info("Reservation successful! Reservation number: {}, Seats: {}, Total price: Rs. {}",
+                reservationNumber, seatNumbers, expectedPrice);
+
         return new ReservationDetails(
                 savedReservation.getReservationNumber(),
                 seatNumbers,
@@ -109,22 +125,26 @@ public class ReservationService {
 
         // validate origin and destination
         if (request.getOrigin().equals(request.getDestination())) {
+            log.warn("Invalid request: origin and destination are the same - {}", request.getOrigin());
             throw new InvalidReservationException("Origin and destination cannot be the same");
         }
 
         // Find the specific route info
         Route route = routeRepository.findByFromLocationAndToLocation( request.getOrigin(), request.getDestination())
-                .orElseThrow(() -> new RouteNotFoundException(
-                        "No route found from " + request.getOrigin() + " to " + request.getDestination()
-                ));
+                .orElseThrow(() -> {
+                    log.error("Route not found: {} -> {}", request.getOrigin(), request.getDestination());
+                    return new RouteNotFoundException("No route found from " + request.getOrigin() + " to " + request.getDestination());
+                });
 
         if (request instanceof ReservationInquiry reservationInquiry) {
 
             // Validate price confirmation
             BigDecimal expectedPrice = route.getPrice().multiply(BigDecimal.valueOf(request.getPassengerCount()));
             if (reservationInquiry.getPriceConfirmation().compareTo(expectedPrice) != 0) {
-                throw new InvalidReservationException(
-                        "Price confirmation mismatch. Expected: Rs. " + expectedPrice + ", Received: Rs. " + reservationInquiry.getPriceConfirmation()
+                log.warn("Price confirmation mismatch. Expected: Rs. {}, Received: Rs. {}",
+                        expectedPrice, reservationInquiry.getPriceConfirmation());
+                throw new InvalidReservationException("Price confirmation mismatch. Expected: Rs. " + expectedPrice +
+                        ", Received: Rs. " + reservationInquiry.getPriceConfirmation()
                 );
             }
         }
@@ -132,6 +152,8 @@ public class ReservationService {
         boolean isForwardTrip = isForwardDirection(request.getOrigin(), request.getDestination());
 
         List<Seat> availableSeats = isForwardTrip ? seatRepository.findByIsBookedADFalse() : seatRepository.findByIsBookedDAFalse();
+
+        log.debug("Number of  {} available seats", availableSeats.size());
 
         return new AvailabilityDetails(route, availableSeats, isForwardTrip);
     }

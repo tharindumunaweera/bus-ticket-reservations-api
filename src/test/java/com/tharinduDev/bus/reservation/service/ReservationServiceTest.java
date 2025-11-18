@@ -21,13 +21,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
@@ -306,7 +304,6 @@ public class ReservationServiceTest {
                 .thenReturn(Optional.of(forwardRoute));
         when(seatRepository.findByIsBookedADFalse()).thenReturn(limitedSeats);
 
-        // Act & Assert
         NoSeatsAvailableException exception = assertThrows(NoSeatsAvailableException.class,
                 () -> reservationService.reserveTickets(request));
         assertEquals("Not enough seats available. Requested: 10, Available: 5", exception.getMessage());
