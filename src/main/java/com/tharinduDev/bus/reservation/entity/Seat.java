@@ -20,29 +20,15 @@ public class Seat {
     @Column(nullable = false, unique = true)
     private String seatNumber;
 
-    // tracks if the seat is occupied for forward journey
-    @Column(nullable = false)
-    private boolean isBookedAD = false;
-
-    // tracks if the seat is occupied for return journey
-    @Column(nullable = false)
-    private boolean isBookedDA = false;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reservation_id")
     @JsonIgnore
     private Reservation reservation;
 
-    public Seat(String seatNumber) {
-        this.seatNumber = seatNumber;
-    }
-
-    // creating seats without reservations -for testing
+    // Constructor for creating seats without reservations (for testing)
     public Seat(Long id, String seatNumber) {
         this.id = id;
         this.seatNumber = seatNumber;
-        this.isBookedAD = false;
-        this.isBookedDA = false;
         this.reservation = null;
     }
 }

@@ -17,7 +17,6 @@ import com.tharinduDev.bus.reservation.repository.SeatRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -62,6 +61,25 @@ public class ReservationServiceTest {
         }
     }
 
+    private Reservation createReservation(Long id, String resNumber, Location from, Location to, Seat... seats) {
+        Reservation reservation = new Reservation();
+        reservation.setId(id);
+        reservation.setReservationNumber(resNumber);
+        reservation.setFromLocation(from);
+        reservation.setToLocation(to);
+        reservation.setPassengerCount(seats.length);
+        reservation.setTotalPrice(new BigDecimal("100.00"));
+
+        List<Seat> seatList = new ArrayList<>();
+        for (Seat seat : seats) {
+            seat.setReservation(reservation);
+            seatList.add(seat);
+        }
+        reservation.setSeats(seatList);
+
+        return reservation;
+    }
+
     // -- checkAvailability Tests --
 
     @Test
@@ -70,7 +88,7 @@ public class ReservationServiceTest {
         TicketInquiry request = new TicketInquiry(2, Location.A, Location.B);
         when(routeRepository.findByFromLocationAndToLocation(Location.A, Location.B))
                 .thenReturn(Optional.of(forwardRoute));
-        when(seatRepository.findByIsBookedADFalse()).thenReturn(testSeats);
+        when(seatRepository.findAll()).thenReturn(testSeats);
 
         AvailabilityReport response = reservationService.checkAvailability(request);
 
@@ -83,7 +101,7 @@ public class ReservationServiceTest {
         assertTrue(response.getAvailableSeatNumbers().contains("10A"));
 
         verify(routeRepository).findByFromLocationAndToLocation(Location.A, Location.B);
-        verify(seatRepository).findByIsBookedADFalse();
+        verify(seatRepository).findAll();
     }
 
     // partial availability when some seats are booked in forward direction
@@ -96,7 +114,7 @@ public class ReservationServiceTest {
 
         when(routeRepository.findByFromLocationAndToLocation(Location.A, Location.B))
                 .thenReturn(Optional.of(forwardRoute));
-        when(seatRepository.findByIsBookedADFalse()).thenReturn(availableSeats);
+        when(seatRepository.findAll()).thenReturn(availableSeats);
 
         AvailabilityReport response = reservationService.checkAvailability(request);
 
@@ -111,7 +129,7 @@ public class ReservationServiceTest {
         TicketInquiry request = new TicketInquiry(2, Location.A, Location.B);
         when(routeRepository.findByFromLocationAndToLocation(Location.A, Location.B))
                 .thenReturn(Optional.of(forwardRoute));
-        when(seatRepository.findByIsBookedADFalse()).thenReturn(Collections.emptyList());
+        when(seatRepository.findAll()).thenReturn(Collections.emptyList());
 
         AvailabilityReport response = reservationService.checkAvailability(request);
 
@@ -125,7 +143,7 @@ public class ReservationServiceTest {
         TicketInquiry request = new TicketInquiry(2, Location.B, Location.A);
         when(routeRepository.findByFromLocationAndToLocation(Location.B, Location.A))
                 .thenReturn(Optional.of(returnRoute));
-        when(seatRepository.findByIsBookedDAFalse()).thenReturn(testSeats);
+        when(seatRepository.findAll()).thenReturn(testSeats);
 
         AvailabilityReport response = reservationService.checkAvailability(request);
 
@@ -137,7 +155,7 @@ public class ReservationServiceTest {
         assertTrue(response.getAvailableSeatNumbers().contains("10A"));
 
         verify(routeRepository).findByFromLocationAndToLocation(Location.B, Location.A);
-        verify(seatRepository).findByIsBookedDAFalse();
+        verify(seatRepository).findAll();
     }
 
     // partial availability when some seats are booked in return direction
@@ -149,7 +167,7 @@ public class ReservationServiceTest {
 
         when(routeRepository.findByFromLocationAndToLocation(Location.B, Location.A))
                 .thenReturn(Optional.of(returnRoute));
-        when(seatRepository.findByIsBookedDAFalse()).thenReturn(availableSeats);
+        when(seatRepository.findAll()).thenReturn(availableSeats);
 
         AvailabilityReport response = reservationService.checkAvailability(request);
 
@@ -157,14 +175,14 @@ public class ReservationServiceTest {
         assertEquals(6, response.getAvailableSeatNumbers().size());
     }
 
-    // No seats are available in return direction
+    // no seats are available in return direction
     @Test
     void checkAvailability_ReturnTrip_NoSeatsAvailable() {
 
         TicketInquiry request = new TicketInquiry(2, Location.B, Location.A);
         when(routeRepository.findByFromLocationAndToLocation(Location.B, Location.A))
                 .thenReturn(Optional.of(returnRoute));
-        when(seatRepository.findByIsBookedDAFalse()).thenReturn(Collections.emptyList());
+        when(seatRepository.findAll()).thenReturn(Collections.emptyList());
 
         AvailabilityReport response = reservationService.checkAvailability(request);
 
@@ -197,7 +215,7 @@ public class ReservationServiceTest {
         );
 
         assertEquals("No route found from " + request.getOrigin() + " to " + request.getDestination(), exception.getMessage());
-        // Only route repository should be called
+        // only route repository should be called
         verify(routeRepository).findByFromLocationAndToLocation(Location.A, Location.B);
         verifyNoInteractions(seatRepository, reservationRepository);
     }
@@ -205,16 +223,22 @@ public class ReservationServiceTest {
 
     // -- Reserve Tickets TESTS --
 
+    // reserve tickets when all seats are available
     @Test
-    void reserveTickets_ForwardTrip_Success() {
+    void reserveTickets_Success_NoOverlap() {
 
         ReservationInquiry request = new ReservationInquiry(2, Location.A, Location.B, new BigDecimal("100.00"));
 
         when(routeRepository.findByFromLocationAndToLocation(Location.A, Location.B))
                 .thenReturn(Optional.of(forwardRoute));
-        when(seatRepository.findByIsBookedADFalse()).thenReturn(testSeats);
+        when(seatRepository.findAll()).thenReturn(testSeats);
+        when(reservationRepository.findAll()).thenReturn(Collections.emptyList());
         when(reservationRepository.save(any(Reservation.class)))
-                .thenAnswer(response -> response.getArgument(0));
+                .thenAnswer(response -> {
+                    Reservation res = response.getArgument(0);
+                    res.setId(1L);
+                    return res;
+                });
 
         ReservationDetails response = reservationService.reserveTickets(request);
 
@@ -226,57 +250,95 @@ public class ReservationServiceTest {
         assertEquals(Location.B, response.getArrivalLocation());
         assertEquals(new BigDecimal("100.00"), response.getTotalPrice());
 
-        // verify seats are marked as booked in forward direction
-        ArgumentCaptor<Reservation> reservationCaptor = ArgumentCaptor.forClass(Reservation.class);
-        verify(reservationRepository).save(reservationCaptor.capture());
-        Reservation savedReservation = reservationCaptor.getValue();
-        assertEquals(2, savedReservation.getSeats().size());
-        savedReservation.getSeats().forEach(seat -> assertTrue(seat.isBookedAD()));
+        verify(reservationRepository).save(any(Reservation.class));
 
     }
 
+    // avoiding already booked ones on overlapping route
     @Test
-    void reserveTickets_ForwardTrip_AllSeats() {
+    void reserveTickets_Success_AvoidBookedSeats() {
 
-        ReservationInquiry request = new ReservationInquiry(10, Location.A, Location.B, new BigDecimal("500.00"));
+        ReservationInquiry request = new ReservationInquiry(2, Location.A, Location.B, new BigDecimal("100.00"));
+
+        Seat bookedSeat1 = testSeats.get(0); // 1A
+        Seat bookedSeat2 = testSeats.get(1); // 2A
+        Reservation existingReservation = createReservation(1L, "RES-001", Location.A, Location.C, bookedSeat1, bookedSeat2);
 
         when(routeRepository.findByFromLocationAndToLocation(Location.A, Location.B))
                 .thenReturn(Optional.of(forwardRoute));
-        when(seatRepository.findByIsBookedADFalse()).thenReturn(testSeats);
-        when(reservationRepository.save(any(Reservation.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(seatRepository.findAll()).thenReturn(testSeats);
+        when(reservationRepository.findAll()).thenReturn(List.of(existingReservation));
+        when(reservationRepository.save(any(Reservation.class))).thenAnswer(invocation -> {
+            Reservation res = invocation.getArgument(0);
+            res.setId(2L);
+            return res;
+        });
 
         ReservationDetails response = reservationService.reserveTickets(request);
 
-        assertEquals(10, response.getSeatNumbers().size());
-        assertEquals(new BigDecimal("500.00"), response.getTotalPrice());
+        assertEquals(2, response.getSeatNumbers().size());
+        assertFalse(response.getSeatNumbers().contains("1A"));
+        assertFalse(response.getSeatNumbers().contains("2A"));
+        assertTrue(response.getSeatNumbers().contains("3A"));
+        assertTrue(response.getSeatNumbers().contains("4A"));
     }
 
     @Test
-    void reserveTickets_ReturnTrip_Success() {
+    void reserveTickets_Success_NonOverlappingBookings() {
+
+        // book A->B when B->C is already booked (no overlap)
+        ReservationInquiry request = new ReservationInquiry(2, Location.A, Location.B, new BigDecimal("100.00"));
+
+        Seat bookedSeat1 = testSeats.get(0); // 1A
+        Seat bookedSeat2 = testSeats.get(1); // 2A
+        Reservation existingReservation = createReservation(1L, "RES-001", Location.B, Location.C, bookedSeat1, bookedSeat2);
+
+        when(routeRepository.findByFromLocationAndToLocation(Location.A, Location.B))
+                .thenReturn(Optional.of(forwardRoute));
+        when(seatRepository.findAll()).thenReturn(testSeats);
+        when(reservationRepository.findAll()).thenReturn(List.of(existingReservation));
+        when(reservationRepository.save(any(Reservation.class))).thenAnswer(invocation -> {
+            Reservation res = invocation.getArgument(0);
+            res.setId(2L);
+            return res;
+        });
+
+        ReservationDetails response = reservationService.reserveTickets(request);
+
+        assertEquals(2, response.getSeatNumbers().size());
+        assertTrue(response.getSeatNumbers().contains("1A"));
+        assertTrue(response.getSeatNumbers().contains("2A"));
+
+    }
+
+    @Test
+    void reserveTickets_ReturnTrip_Success_NoOverlap() {
 
         ReservationInquiry request = new ReservationInquiry(2, Location.B, Location.A, new BigDecimal("100.00"));
 
         when(routeRepository.findByFromLocationAndToLocation(Location.B, Location.A))
-                .thenReturn(Optional.of(returnRoute));
-        when(seatRepository.findByIsBookedDAFalse()).thenReturn(testSeats);
+                .thenReturn(Optional.of(forwardRoute));
+        when(seatRepository.findAll()).thenReturn(testSeats);
+        when(reservationRepository.findAll()).thenReturn(Collections.emptyList());
         when(reservationRepository.save(any(Reservation.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
+                .thenAnswer(response -> {
+                    Reservation res = response.getArgument(0);
+                    res.setId(1L);
+                    return res;
+                });
 
         ReservationDetails response = reservationService.reserveTickets(request);
 
         assertNotNull(response);
+        assertNotNull(response.getReservationNumber());
+        assertTrue(response.getReservationNumber().startsWith("RES-"));
         assertEquals(2, response.getSeatNumbers().size());
         assertEquals(Location.B, response.getDepartureLocation());
         assertEquals(Location.A, response.getArrivalLocation());
         assertEquals(new BigDecimal("100.00"), response.getTotalPrice());
 
-        // verify seats are marked as booked in return direction
-        ArgumentCaptor<Reservation> reservationCaptor = ArgumentCaptor.forClass(Reservation.class);
-        verify(reservationRepository).save(reservationCaptor.capture());
-        Reservation savedReservation = reservationCaptor.getValue();
-        savedReservation.getSeats().forEach(seat -> assertTrue(seat.isBookedDA()));
+        verify(reservationRepository).save(any(Reservation.class));
+
     }
 
     @Test
@@ -302,13 +364,13 @@ public class ReservationServiceTest {
 
         when(routeRepository.findByFromLocationAndToLocation(Location.A, Location.B))
                 .thenReturn(Optional.of(forwardRoute));
-        when(seatRepository.findByIsBookedADFalse()).thenReturn(limitedSeats);
+        when(seatRepository.findAll()).thenReturn(limitedSeats);
 
         NoSeatsAvailableException exception = assertThrows(NoSeatsAvailableException.class,
                 () -> reservationService.reserveTickets(request));
         assertEquals("Not enough seats available. Requested: 10, Available: 5", exception.getMessage());
 
-        verifyNoInteractions(reservationRepository);
+        verify(reservationRepository, never()).save(any());
     }
 
 }

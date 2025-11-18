@@ -69,13 +69,12 @@ public class ReservationService {
         List<Seat> availableSeats = details.availableSeats();
         // Check if enough seats are available
         if (availableSeats.size() < request.getPassengerCount()) {
+            log.error("Insufficient seats available. Requested: {}, Available: {}",
+                    request.getPassengerCount(), availableSeats.size());
             throw new NoSeatsAvailableException("Not enough seats available. Requested: " + request.getPassengerCount() +
                             ", Available: " + availableSeats.size()
             );
         }
-
-        // take the first N number of requested seats
-        List<Seat> assignedSeats = availableSeats.subList(0, request.getPassengerCount());
 
         // Create one reservation with multiple seats
         String reservationNumber = generateReservationNumber();
@@ -91,13 +90,11 @@ public class ReservationService {
         reservation.setTotalPrice(expectedPrice);
         reservation.setPassengerCount(request.getPassengerCount());
 
-        // mark seats as booked and link to reservation
+        // take the first N number of requested seats
+        List<Seat> assignedSeats = availableSeats.subList(0, request.getPassengerCount());
+
+        // link seats to reservation
         for (Seat seat : assignedSeats) {
-            if (details.isForwardTrip()) {
-                seat.setBookedAD(true);
-            } else {
-                seat.setBookedDA(true);
-            }
             seat.setReservation(reservation);
             reservation.getSeats().add(seat);
         }
@@ -108,7 +105,7 @@ public class ReservationService {
         // Get seat numbers for response
         List<String> seatNumbers = assignedSeats.stream().map(seat -> seat.getSeatNumber()).collect(Collectors.toList());
 
-        log.info("Reservation successful! Reservation number: {}, Seats: {}, Total price: Rs. {}",
+        log.info("Reservation successful!. Reservation number: {}, Seats: {}, Total price: Rs. {}",
                 reservationNumber, seatNumbers, expectedPrice);
 
         return new ReservationDetails(
@@ -149,25 +146,57 @@ public class ReservationService {
             }
         }
 
-        boolean isForwardTrip = isForwardDirection(request.getOrigin(), request.getDestination());
+        // Get all seats and reservations to check for overlaps
+        List<Seat> allSeats = seatRepository.findAll();
+        List<Reservation> allReservations = reservationRepository.findAll();
 
-        List<Seat> availableSeats = isForwardTrip ? seatRepository.findByIsBookedADFalse() : seatRepository.findByIsBookedDAFalse();
+        // Find seats that overlap with the requested route
+        List<Long> conflictingSeatIds = allReservations.stream()
+                .filter(reservation -> routesOverlap(
+                        request.getOrigin(), request.getDestination(),
+                        reservation.getFromLocation(), reservation.getToLocation()
+                ))
+                .flatMap(reservation -> reservation.getSeats().stream())
+                .map(Seat::getId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        log.debug("Found {} seats with conflicting reservations", conflictingSeatIds.size());
+
+        List<Seat> availableSeats = allSeats.stream()
+                .filter(seat -> !conflictingSeatIds.contains(seat.getId()))
+                .collect(Collectors.toList());
 
         log.debug("Number of  {} available seats", availableSeats.size());
 
-        return new AvailabilityDetails(route, availableSeats, isForwardTrip);
-    }
-
-    // check if a route is in the forward direction (A -> D) or return direction
-    private boolean isForwardDirection(Location from, Location to) {
-        int fromPos = getLocationPosition(from);
-        int toPos = getLocationPosition(to);
-        return fromPos < toPos;
+        return new AvailabilityDetails(route, availableSeats);
     }
 
     private String generateReservationNumber() {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
         return "RES-" + timestamp + "-" + (int) (Math.random() * 1000);
+    }
+
+    // Checks if two routes overlap. Overlap only occurs if they travel in the same direction and their segment intersect.
+    private boolean routesOverlap(Location req1From, Location req1To, Location req2From, Location req2To) {
+
+        // use the difference in positions to determine direction - positive for forward, negative for backward
+        int req1Direction = getLocationPosition(req1To) - getLocationPosition(req1From);
+        int req2Direction = getLocationPosition(req2To) - getLocationPosition(req2From);
+
+        // routes only overlap if they are traveling in the same direction
+        if (Math.signum(req1Direction) != Math.signum(req2Direction)) {
+            return false;
+        }
+
+        // Need the start and end positions, regardless of the travel direction.
+        int req1Start = Math.min(getLocationPosition(req1From), getLocationPosition(req1To));
+        int req1End = Math.max(getLocationPosition(req1From), getLocationPosition(req1To));
+
+        int req2Start = Math.min(getLocationPosition(req2From), getLocationPosition(req2To));
+        int req2End = Math.max(getLocationPosition(req2From), getLocationPosition(req2To));
+
+        return (req1Start < req2End) && (req2Start < req1End);
     }
 
     private int getLocationPosition(Location location) {
